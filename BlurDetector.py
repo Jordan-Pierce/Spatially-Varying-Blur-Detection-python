@@ -14,6 +14,7 @@ from skimage.filters.rank import entropy
 from skimage.morphology import square
 import copy
 import time
+import sys
 
 class BlurDetector(object):
     def __init__(self, downsampling_factor=4, num_scales=4, scale_start=3, entropy_filt_kernel_sze=7, sigma_s_RF_filter=15, sigma_r_RF_filter=0.25, num_iterations_RF_filter=3, show_progress = True):
@@ -45,8 +46,8 @@ class BlurDetector(object):
         i_done = i / rows * 100
         p_done = round(i_done / 10) * 10
         if(p_done != old_progress):
-            os.system('cls' if os.name == 'nt' else 'clear')
-            print(progress_dict[p_done])
+            sys.stdout.write("\r" + progress_dict[p_done])
+            sys.stdout.flush()
             old_progress = p_done
         return(p_done)
 
@@ -94,7 +95,6 @@ class BlurDetector(object):
 
     def __getDCTCoefficients(self, img_blk, ind):
         rows, cols = np.shape(img_blk)
-        # D = self.__dctmtx(rows)
         D = self.__dct_matrices[ind]
         dct_coeff = np.matmul(np.matmul(D, img_blk), np.transpose(D))
         return(dct_coeff)
@@ -223,21 +223,12 @@ class BlurDetector(object):
         L = np.array(L)
 
         # normalize the L matrix
-        for i in range(total_num_layers):
-            max_val = max(L[:, i])
-            L[:, i] = L[:, i] / max_val
+        L = L / L.max(axis=0)
 
         # perform max pooling on the normalized frequencies
-        ind1d = 0
-        T_max = np.zeros((n, m))
-        max_val = 0
-        min_val = 99999
-        for i in range(n):
-            for j in range(m):
-                T_max[i][j] = max(L[ind1d, :])
-                max_val = max(max_val, T_max[i][j])
-                min_val = min(min_val, T_max[i][j])
-                ind1d += 1
+        T_max = np.max(L.reshape(n, m, -1), axis=2)
+        max_val = np.max(T_max)
+        min_val = np.min(T_max)
 
         # Final Map and Post Processing
         local_entropy = self.entropyFilt(T_max)
